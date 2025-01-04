@@ -4,26 +4,33 @@
 import PackageDescription
 
 let package = Package(
-    name: "{{HB_PACKAGE_NAME}}",
+    name: "Habit-Tracker-backend",
     platforms: [.macOS(.v14), .iOS(.v17), .tvOS(.v17)],
+    /// productsのnameがビルド時に指定する実行可能ファイルの名前になる。
+    /// targeysのnameはproductsを構成する構成単位の名前
     products: [
-        .executable(name: "{{HB_EXECUTABLE_NAME}}", targets: ["{{HB_EXECUTABLE_NAME}}"]),
+        .executable(name: "HummingbirdServer", targets: ["Habit-Tracker-backend"]),
     ],
     dependencies: [
         .package(url: "https://github.com/hummingbird-project/hummingbird.git", from: "2.0.0"),
-        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0")
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
+        .package(url: "https://github.com/vapor/postgres-nio.git", from: "1.21.0"),
+        // .package(url: "https://github.com/hummingbird-project/hummingbird-fluent.git", from: "1.1.0"),
+
     ],
     targets: [
-        .executableTarget(name: "{{HB_EXECUTABLE_NAME}}",
+        .executableTarget(name: "Habit-Tracker-backend",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Hummingbird", package: "hummingbird"),
+                .product(name: "PostgresNIO", package: "postgres-nio"),
+
             ],
             path: "Sources/App"
         ),
-        .testTarget(name: "{{HB_EXECUTABLE_NAME}}Tests",
+        .testTarget(name: "Habit-Tracker-backendTests",
             dependencies: [
-                .byName(name: "{{HB_EXECUTABLE_NAME}}"),
+                .byName(name: "Habit-Tracker-backend"),
                 .product(name: "HummingbirdTesting", package: "hummingbird")
             ],
             path: "Tests/AppTests"

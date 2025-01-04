@@ -28,11 +28,18 @@ RUN swift build -c release \
     --static-swift-stdlib \
     -Xlinker -ljemalloc
 
+
 # Switch to the staging area
 WORKDIR /staging
+RUN ls -la /staging
+
+# Set executable name as an environment variable
+ARG HB_EXECUTABLE_NAME
+ENV HB_EXECUTABLE_NAME=${HB_EXECUTABLE_NAME}
 
 # Copy main executable to staging area
-RUN cp "$(swift build --package-path /build -c release --show-bin-path)/{{HB_EXECUTABLE_NAME}}" ./
+RUN cp "$(swift build --package-path /build -c release --show-bin-path)/${HB_EXECUTABLE_NAME}" ./
+RUN ls -la /staging
 
 # Copy static swift backtracer binary to staging area
 RUN cp "/usr/libexec/swift/linux/swift-backtrace-static" ./
@@ -71,6 +78,7 @@ WORKDIR /app
 
 # Copy built executable and any staged resources from builder
 COPY --from=build --chown=hummingbird:hummingbird /staging /app
+RUN ls -la /app
 
 # Provide configuration needed by the built-in crash reporter and some sensible default behaviors.
 ENV SWIFT_BACKTRACE=enable=yes,sanitize=yes,threads=all,images=all,interactive=no,swift-backtrace=./swift-backtrace-static
@@ -82,5 +90,23 @@ USER hummingbird:hummingbird
 EXPOSE 8080
 
 # Start the Hummingbird service when the image is run, default to listening on 8080 in production environment
-ENTRYPOINT ["./{{HB_EXECUTABLE_NAME}}"]
+# ENTRYPOINTはシェル展開をサポートしない形式(exec形式)なので環境変数を読み込んで使うことができない。
+# ENTRYPOINT ["./${HB_EXECUTABLE_NAME}"]
+
+#### ハードコーディングで記述する
+# ENTRYPOINT ["./HummingbirdServer"]
+
+#### シェル形式で記述する
+# ENTRYPOINT ["/bin/sh", "-c", "./$HB_EXECUTABLE_NAME"]
+#### スクリプトを読み込み実行する
+# すべての権限変更をrootユーザーで行う
+USER root
+# 必要なファイルの設定を実行
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+# 作業が終わった後でユーザーを切り替える
+USER hummingbird
+# ENTRYPOINTでスクリプトを指定
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+
 CMD ["--hostname", "0.0.0.0", "--port", "8080"]

@@ -1,0 +1,31 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        HB_EXECUTABLE_NAME: ${HB_EXECUTABLE_NAME}
+    container_name: hummingbird_backend
+    ports:
+      - "8080:8080" # ローカルホストとバックエンドのポートをマッピング
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL} # logLevelを.envから取得
+    depends_on:
+      - postgres-db # PostgreSQLが起動してからバックエンドを起動する
+
+  postgres-db:
+    image: postgres:17.2
+    container_name: postgres_container
+    volumes:
+      - "postgres_data:/var/lib/postgresql/data" # 永続データの保存場所
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432" # ローカルホストとPostgreSQLのポートをマッピング
+
+volumes:
+  postgres_data: # データベース用の永続ボリューム
