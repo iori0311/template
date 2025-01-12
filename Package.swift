@@ -7,7 +7,7 @@ let package = Package(
     name: "Habit-Tracker-backend",
     platforms: [.macOS(.v14), .iOS(.v17), .tvOS(.v17)],
     /// productsのnameがビルド時に指定する実行可能ファイルの名前になる。
-    /// targeysのnameはproductsを構成する構成単位の名前
+    /// targetsのnameはproductsを構成する構成単位の名前
     products: [
         .executable(name: "HummingbirdServer", targets: ["Habit-Tracker-backend"]),
     ],
@@ -15,6 +15,7 @@ let package = Package(
         .package(url: "https://github.com/hummingbird-project/hummingbird.git", from: "2.0.0"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
         .package(url: "https://github.com/vapor/postgres-nio.git", from: "1.21.0"),
+        .package(url: "https://github.com/apple/swift-crypto.git", from: "3.10.0")
         // .package(url: "https://github.com/hummingbird-project/hummingbird-fluent.git", from: "1.1.0"),
 
     ],
@@ -24,6 +25,7 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Hummingbird", package: "hummingbird"),
                 .product(name: "PostgresNIO", package: "postgres-nio"),
+                .product(name: "Crypto", package: "swift-crypto")
 
             ],
             path: "Sources/App"

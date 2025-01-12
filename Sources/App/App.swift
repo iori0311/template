@@ -21,9 +21,8 @@ struct AppCommand: AsyncParsableCommand, AppArguments {
     var inMemoryTesting: Bool = false
 
     func run() async throws {
-        print("STEP1 build App")
+        print("App Run")
         let app = try await buildApplication(self)
-        print("RUN App")
         try await app.runService()
     }
 }

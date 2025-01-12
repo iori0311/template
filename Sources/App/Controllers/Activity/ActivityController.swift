@@ -2,7 +2,11 @@ import Hummingbird
 
 /// ジェネリック型でRepositoryという型パラメータを受け取る。repositoryはActivityRepositoryに準拠する必要がある。
 struct ActivityController<Repository: ActivityRepository> {
-    let repository: Repository
+    private let repository: Repository
+
+    init(repository: Repository) {
+        self.repository = repository
+    }
 
     var endpoints: RouteCollection<AppRequestContext> {
         return RouteCollection(context: AppRequestContext.self)
@@ -71,7 +75,7 @@ struct ActivityController<Repository: ActivityRepository> {
         if try await self.repository.delete(id: id) {
             return .ok
         } else {
-            return .badRequest
+            return .notFound
         }
     }
 
