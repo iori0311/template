@@ -10,7 +10,7 @@ struct UserMemoryRepository: UserRepository {
             return self.users.values.map { $0 }
     }
 
-    func create(user_name: String, hashed_password: String) async throws {
+    func create(user_name: String, hashed_password: String, salt: String) async throws {
     }
 
     func delete(id: Int) async throws -> Bool {

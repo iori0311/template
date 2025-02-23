@@ -15,7 +15,8 @@ struct UserPostgresRepository: UserRepository {
             CREATE TABLE IF NOT EXISTS users (
             "id" SERIAL PRIMARY KEY,
             "user_name" TEXT NOT NULL,
-            "hashed_password" TEXT NOT NULL
+            "hashed_password" TEXT NOT NULL,
+            "salt" TEXT NOT NULL
             )
             """,
             logger: logger)
@@ -25,24 +26,24 @@ struct UserPostgresRepository: UserRepository {
     func getAll() async throws -> [User] {
         let stream = try await self.client.query(
             """
-                SELECT "id", "user_name", "hashed_password" from users
+                SELECT "id", "user_name", "hashed_password", "salt" from users
             """, logger: logger
         )
         var users: [User] = []
-        for try await (id, user_name, hashed_password) in stream.decode(
-            (Int, String, String).self, context: .default)
+        for try await (id, user_name, hashed_password, salt) in stream.decode(
+            (Int, String, String, String).self, context: .default)
         {
-            let user: User = User(id: id, user_name: user_name, hashed_password: hashed_password)
+            let user: User = User(id: id, user_name: user_name, hashed_password: hashed_password, salt: salt)
             users.append(user)
         }
         return users
     }
 
-    func create(user_name: String, hashed_password: String) async throws {
+    func create(user_name: String, hashed_password: String, salt: String) async throws {
         do {
         try await self.client.query(
             /// プレースホルダーを使うこと
-            "INSERT INTO users (user_name, hashed_password) VALUES (\(user_name), \(hashed_password))",
+            "INSERT INTO users (user_name, hashed_password, salt) VALUES (\(user_name), \(hashed_password), \(salt))",
             logger: logger)
         } catch {
             throw RepositoryError.creationFailed(reason: ErrorMessage.creationFailed.rawValue)
