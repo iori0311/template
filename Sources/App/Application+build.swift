@@ -16,56 +16,50 @@ public protocol AppArguments {
 // Request context used by application
 typealias AppRequestContext = BasicRequestContext
 
+/// PostgreSQLConnectionConfiguration
+struct PostgresConfiguration {
+    let host: String
+    let username: String
+    let password: String
+    let database: String
+
+    static func fromEnvironment(_ environment: Environment) -> Self {
+        return .init(
+            host: environment.get("POSTGRES_HOST") ?? "postgres-db",
+            username: environment.get("POSTGRES_USER") ?? "user",
+            password: environment.get("POSTGRES_PASSWORD") ?? "password",
+            database: environment.get("POSTGRES_DB") ?? "my_db"
+        )
+    }
+}
+
 ///  Build application
 /// - Parameter arguments: application arguments
 public func buildApplication(_ arguments: some AppArguments) async throws
     -> some ApplicationProtocol
 {
     let environment = Environment()
-    let logger = {
-        var logger = Logger(label: "HummingbirdServer")
-        logger.logLevel =
-            arguments.logLevel ?? environment.get("LOG_LEVEL").flatMap {
-                Logger.Level(rawValue: $0)
-            } ?? .info
-        return logger
-    }()
 
-    /// RepositoryをRouterに渡すことで、APIのデータの永続化先をふりわけている、
-    let activityRepository: ActivityRepository
-    let userRepository: UserRepository
-    let router: Router<AppRequestContext>
-    let userService: UserServiceProtocol = UserServiceImpl()
-    let authService: AuthenticationServiceProtocol = AuthenticationServiceImpl()
+    // create logger
+    let logger = makeLogger(arguments, environment)
 
-    if !arguments.inMemoryTesting {
-        let client = PostgresClient(
-            configuration: .init(
-                /// ローカルで起動する場合は以下
-                host: "localhost",
-                /// dockerの場合はhostをdbのservice名にする必要がある
-                // host: "postgres-db",
-                username: "user",
-                password: "password",
-                database: "my_db",
-                tls: .disable),
-            backgroundLogger: logger
-        )
-        activityRepository = ActivityPostgresRepository(client: client, logger: logger)
-        userRepository = UserPostgresRepository(client: client, logger: logger)
-    } else {
-        activityRepository = ActivityMemoryRepository()
-        userRepository = UserMemoryRepository()
-        print("Call InMemory")
-    }
-
-    router = buildRouter(
-        activityRepository,
-        userRepository,
-        userService: userService,
-        authService: authService
+    // create repositories
+    let (activityRepository, userRepository, maybeClient) = makeRepositories(
+        arguments: arguments,
+        environment: environment,
+        logger: logger
     )
 
+    // prepare services
+    let userService: UserServiceProtocol = UserServiceImpl(userRepository: userRepository)
+
+    // create router
+    let router: Router<AppRequestContext> = buildRouter(
+        activityRepository,
+        userService
+    )
+
+    // create application
     var app: Application<RouterResponder<AppRequestContext>> = Application(
         router: router,
         configuration: .init(
@@ -75,10 +69,9 @@ public func buildApplication(_ arguments: some AppArguments) async throws
         logger: logger
     )
 
-    if !arguments.inMemoryTesting {
-        if let pgActivityRepo = activityRepository as? ActivityPostgresRepository {
-        app.addServices(pgActivityRepo.client)
-    }
+    // postgres 
+    if let client = maybeClient {
+        app.addServices(client)
         app.beforeServerStarts {
             print("Creating tables...")
             try await (activityRepository as? ActivityPostgresRepository)?.createTable()
@@ -89,13 +82,47 @@ public func buildApplication(_ arguments: some AppArguments) async throws
     return app
 }
 
+private func makeLogger(_ arguments: some AppArguments, _ environment: Environment) -> Logger {
+    var logger = Logger(label: "HummingbirdServer")
+    logger.logLevel =
+        arguments.logLevel
+        ?? environment.get("LOG_LEVEL").flatMap { Logger.Level(rawValue: $0) }
+        ?? .info
+    return logger
+}
+
+private func makeRepositories(
+    arguments: some AppArguments,
+    environment: Environment,
+    logger: Logger
+) -> (ActivityRepository, UserRepository, PostgresClient?) {
+
+    if !arguments.inMemoryTesting {
+        let pgConfig = PostgresConfiguration.fromEnvironment(environment)
+        let client = PostgresClient(
+            configuration: .init(
+                host: pgConfig.host,
+                username: pgConfig.username,
+                password: pgConfig.password,
+                database: pgConfig.database,
+                tls: .disable
+            ),
+            backgroundLogger: logger
+        )
+        let activityRepo = ActivityPostgresRepository(client: client, logger: logger)
+        let userRepo = UserPostgresRepository(client: client, logger: logger)
+        return (activityRepo, userRepo, client)
+    } else {
+        let activityRepo = ActivityMemoryRepository()
+        let userRepo = UserMemoryRepository()
+        return (activityRepo, userRepo, nil)
+    }
+}
+
 /// Build router
-/// Repositoryを受け取るようにする
-func buildRouter(
+private func buildRouter(
     _ activityRepository: some ActivityRepository,
-    _ userRepository: some UserRepository,
-    userService: UserServiceProtocol,
-    authService: AuthenticationServiceProtocol
+    _ userService: UserServiceProtocol
 ) -> Router<AppRequestContext> {
     let router = Router(context: AppRequestContext.self)
     // Add middleware
@@ -113,11 +140,19 @@ func buildRouter(
         return .ok
     }
 
+    // Add activity endpoint
     router.addRoutes(
-        ActivityController(repository: activityRepository).endpoints, atPath: "/activities")
+        ActivityController(
+            repository: activityRepository
+        )
+        .endpoints,
+        atPath: "/activities")
+
+    // Add user endpoint
     router.addRoutes(
         UserController(
-            repository: userRepository, userService: userService, authService: authService
-        ).endpoints, atPath: "/user")
+            userService: userService
+        ).endpoints,
+        atPath: "/user")
     return router
 }
