@@ -94,19 +94,19 @@ EXPOSE 8080
 # ENTRYPOINT ["./${HB_EXECUTABLE_NAME}"]
 
 #### ハードコーディングで記述する
-# ENTRYPOINT ["./HummingbirdServer"]
+ENTRYPOINT ["./HummingbirdServer"]
 
 #### シェル形式で記述する
 # ENTRYPOINT ["/bin/sh", "-c", "./$HB_EXECUTABLE_NAME"]
 #### スクリプトを読み込み実行する
 # すべての権限変更をrootユーザーで行う
-USER root
+# USER root
 # 必要なファイルの設定を実行
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+# COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+# RUN chmod +x /usr/local/bin/entrypoint.sh
 # 作業が終わった後でユーザーを切り替える
-USER hummingbird
+# USER hummingbird
 # ENTRYPOINTでスクリプトを指定
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+# ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 CMD ["--hostname", "0.0.0.0", "--port", "8080"]
